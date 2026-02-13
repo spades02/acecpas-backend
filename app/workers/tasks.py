@@ -1,30 +1,25 @@
 """
-AceCPAs Backend - Celery Tasks
+AceCPAs Backend - Synchronous Tasks (Free Tier Optimized)
 Background tasks for file processing and AI agents.
+Modified to run synchronously without Celery/Redis for simplified deployment.
 """
 from datetime import datetime
 from typing import Optional
 
-from celery import shared_task
+# Removed Celery imports for Free Tier compatibility
+# from celery import shared_task
 
 from app.database import get_supabase_admin_client, DatabaseService
 from app.services.ingestion import IngestionService, TrialBalanceError, HeaderDetectionError
 
 
-@shared_task(bind=True, max_retries=2, default_retry_delay=30)
 def run_mapper_agent(
-    self,
     deal_id: str,
     reprocess_low_confidence: bool = False,
     confidence_threshold: float = 0.9
 ):
     """
-    Celery task to run the mapper agent on unmapped transactions.
-    
-    Args:
-        deal_id: UUID of the deal
-        reprocess_low_confidence: Whether to reprocess low-confidence mappings
-        confidence_threshold: Threshold for low confidence
+    Run the mapper agent on unmapped transactions.
     """
     from app.services.mapper_agent import MapperAgentService
     
@@ -38,30 +33,21 @@ def run_mapper_agent(
         return result
         
     except Exception as e:
-        if self.request.retries < self.max_retries:
-            raise self.retry(exc=e)
+        print(f"Mapper Agent failed: {e}")
         return {
             "status": "failed",
             "error": str(e)
         }
 
 
-@shared_task(bind=True, max_retries=3, default_retry_delay=60)
 def process_gl_file(
-    self,
     job_id: str,
     deal_id: str,
     file_path: str,
     filename: str
 ):
     """
-    Celery task to process a GL Excel file.
-    
-    Args:
-        job_id: UUID of the upload job
-        deal_id: UUID of the deal
-        file_path: Path in Supabase Storage
-        filename: Original filename
+    Process a GL Excel file synchronously.
     """
     client = get_supabase_admin_client()
     db = DatabaseService(client)
@@ -92,8 +78,6 @@ def process_gl_file(
             filename=filename,
             validate=False
         )
-        
-
         
         # Bulk insert transactions
         if transactions:
@@ -156,7 +140,7 @@ def process_gl_file(
         }
         
     except Exception as e:
-        # Generic error - retry if possible
+        # Generic error
         print(f"Job {job_id} failed: Generic Error - {e}")
         import traceback
         traceback.print_exc()
@@ -166,10 +150,6 @@ def process_gl_file(
             "processed_at": datetime.utcnow().isoformat(),
         }).eq("id", job_id).execute()
         
-        # Retry on transient errors
-        if self.request.retries < self.max_retries:
-            raise self.retry(exc=e)
-        
         return {
             "status": "failed",
             "error": "processing_error",
@@ -177,13 +157,9 @@ def process_gl_file(
         }
 
 
-@shared_task(bind=True, max_retries=2, default_retry_delay=30)
-def run_auditor_agent(self, deal_id: str):
+def run_auditor_agent(deal_id: str):
     """
-    Celery task to run the auditor agent for anomaly detection.
-    
-    Args:
-        deal_id: UUID of the deal
+    Run the auditor agent for anomaly detection.
     """
     from app.services.auditor_agent import AuditorAgentService
     
@@ -193,18 +169,16 @@ def run_auditor_agent(self, deal_id: str):
         return result
         
     except Exception as e:
-        if self.request.retries < self.max_retries:
-            raise self.retry(exc=e)
+        print(f"Auditor Agent failed: {e}")
         return {
             "status": "failed",
             "error": str(e)
         }
 
 
-@shared_task
 def generate_excel_report(deal_id: str, options: dict):
     """
-    Celery task to generate Excel report for a deal.
+    Generate Excel report for a deal.
     """
     # TODO: Implement Excel report generation
     pass

@@ -2,7 +2,9 @@
 
 This backend is configured for deployment on **Render** (recommended) or **Railway**, as it requires a persistent worker process and Redis for background tasks (Celery).
 
-## Option 1: Render (Recommended)
+## Option 1: Render (Recommended - Free Tier Optimized)
+**Note**: The repository is configured to deploy only the Web Service (API) without background workers or Redis to stay within the Free Tier.
+
 
 1. **Push your code** to a GitHub/GitLab repository.
 2. Log in to [Render.com](https://render.com).
