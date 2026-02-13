@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    container_name: acecpas_backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/code
+    environment:
+      - ENVIRONMENT=development
+      - DEBUG=True
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+    networks:
+      - acecpas_network
+
+  redis:
+    image: "redis:alpine"
+    container_name: acecpas_redis
+    ports:
+      - "6379:6379"
+    networks:
+      - acecpas_network
+
+  worker:
+    build: .
+    container_name: acecpas_worker
+    command: celery -A app.workers.celery_app worker --loglevel=info
+    volumes:
+      - .:/code
+    environment:
+      - SUPABASE_URL=${SUPABASE_URL}
+      - SUPABASE_KEY=${SUPABASE_KEY}
+      - SUPABASE_SERVICE_KEY=${SUPABASE_SERVICE_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+      - backend
+    networks:
+      - acecpas_network
+
+networks:
+  acecpas_network:
+    driver: bridge

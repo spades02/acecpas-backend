@@ -1,0 +1,58 @@
+services:
+  # Web Service (FastAPI)
+  - type: web
+    name: acecpas-backend
+    runtime: docker
+    plan: free
+    branch: main
+    numInstances: 1
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ENVIRONMENT
+        value: production
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: acecpas-redis
+          property: connectionString
+
+  # Worker Service (Celery)
+  - type: worker
+    name: acecpas-worker
+    runtime: docker
+    branch: main
+    dockerCommand: celery -A app.workers.celery_app worker --loglevel=info
+    envVars:
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: ENVIRONMENT
+        value: production
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: acecpas-redis
+          property: connectionString
+
+  # Redis Service
+  - type: redis
+    name: acecpas-redis
+    plan: free
+    ipAllowList: [] # Only internal access
